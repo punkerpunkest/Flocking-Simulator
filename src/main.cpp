@@ -9,19 +9,26 @@
 #include <iostream>
 
 int main() {
-    constexpr int WIDTH = 1200;
-    constexpr int HEIGHT = 800;    
+    constexpr int WIDTH = 12000;
+    constexpr int HEIGHT = 12000;    
 
     sf::RenderWindow window(sf::VideoMode({WIDTH, HEIGHT}), "Boids Flocking");
     window.setFramerateLimit(60);
+
+    sf::View view(sf::FloatRect({0,0}, {WIDTH, HEIGHT}));
+    window.setView(view);
+    
+    sf::Clock fpsClock;
+    int fpsFrames = 0;
+    float fps = 0.0f;
+
     
     std::vector<Boid> boids;
-    boids.reserve(30);
+    boids.reserve(20000);
 
     int frameCount = 0;
-    bool showQuadTree = true; 
     sf::Clock printClock;
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 20000; i++) {
         float x = rand() % WIDTH;
         float y = rand() % HEIGHT;
         boids.emplace_back(x, y);
@@ -40,22 +47,21 @@ int main() {
                 }
             }
             
-            if (const auto* keyPress = event->getIf<sf::Event::KeyPressed>()) {
-                if (keyPress->code == sf::Keyboard::Key::Space) {
-                    showQuadTree = !showQuadTree;
+            //if (const auto* keyPress = event->getIf<sf::Event::KeyPressed>()) {
+             //   if (keyPress->code == sf::Keyboard::Key::Space) {
+              //      showQuadTree = !showQuadTree;
     
-                }
-            }
+              //  }
+            //}
         }
         
         frameCount++;
         resetArena(arena);
 
         QuadTreeNode boundary(WIDTH / 2, HEIGHT / 2, WIDTH / 2, HEIGHT / 2);
-        QuadTree tree(boundary, 4, arena);
+        QuadTree tree(boundary, 8, arena);
 
         {
-            PROFILE("QuadTree Build");
             for (auto& boid : boids) {
                 Point p(boid.getX(), boid.getY(), &boid);
                 tree.insertPoint(p);
@@ -63,7 +69,6 @@ int main() {
         }
         
         {
-            PROFILE("Flocking");
             for (auto& boid: boids) {
                 boid.flock(tree);
                 boid.update();
@@ -73,20 +78,20 @@ int main() {
         
         window.clear(sf::Color::Black);
         
-        if (showQuadTree) {
-            tree.draw(window, sf::Color(100, 100, 100, 128));
-        }
-        
         for (auto& boid: boids) {
             boid.draw(window);
         }
+
+            ++fpsFrames;
+    const float elapsed = fpsClock.getElapsedTime().asSeconds();
+    if (elapsed >= 2.0f) {
+        fps = static_cast<float>(fpsFrames) / elapsed;
+        std::cout << fps << "\n";
+        fpsFrames = 0;
+        fpsClock.restart();
+    }
         
        window.display();
-
-        if (printClock.getElapsedTime().asSeconds() >= 5.0f) {
-            Profiler::get().print();
-            printClock.restart();
-        }
     }
 
     freeArena(arena);

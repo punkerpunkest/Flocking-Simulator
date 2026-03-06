@@ -14,7 +14,6 @@ bool QuadTree::canContain(Point p) {
 }
 
 void QuadTree::insertPoint(Point p) {
-  PROFILE("QuadTree::insertPoint");
   if (!canContain(p)) {
     return;
   }
@@ -55,7 +54,6 @@ void QuadTree::insertPoint(Point p) {
 }
 
 void QuadTree::subDivide() {
-  PROFILE("QuadTree::subDivide");
   auto width = boundary.getWidth();
   auto height = boundary.getHeight();
 
@@ -118,14 +116,12 @@ void QuadTree::query(QuadTree &node, std::vector<Point> &found) {
 
 void QuadTree::queryCircle(QuadTree &node, Circle &c, std::vector<Point> &found) {
   {
-    PROFILE("queryCircle - Intersection");
     if (!c.intersects(node.boundary)) {
       return;
     }
   }
 
   {
-    PROFILE("queryCircle - Complete Contains");
     if (c.completeContains(node.boundary)) {
       for (auto &p : node.points) {
         found.push_back(p);
@@ -141,7 +137,6 @@ void QuadTree::queryCircle(QuadTree &node, Circle &c, std::vector<Point> &found)
   }
   
   {
-    PROFILE("queryCircle - Check points");
     for (auto &p : node.points) {
       if (c.canContain(p)) {
         found.push_back(p);

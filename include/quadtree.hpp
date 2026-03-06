@@ -4,7 +4,7 @@
 #include <SFML/Graphics.hpp>
 #include <memory>
 #include <vector>
-
+#pragma once
 class QuadTree {
 private:
   int capacity;

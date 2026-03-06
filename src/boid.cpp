@@ -2,7 +2,6 @@
 #include "Profiler.hpp"
 #include "circle.hpp"
 #include "point.hpp"
-#include "quadtree.hpp"
 #include <cmath>
 #include <iostream>
 
@@ -11,7 +10,6 @@ Boid::Boid(const float x, const float y) noexcept
       velocity((rand() % 200 - 100) / 50.0f, (rand() % 200 - 100) / 50.0f) {}
 
 void Boid::flock(QuadTree& tree) noexcept {
-    PROFILE("Boid::flock");
     Circle range(position.x, position.y, perceptionRadius);
     std::vector<Point> neighbourCache;
     tree.queryCircle(tree, range, neighbourCache);
@@ -28,6 +26,7 @@ void Boid::flock(QuadTree& tree) noexcept {
         const float d = magnitude(position - other->position);
         if (d > 0) {
             sf::Vector2f diff = position - other->position;
+            diff = normalize(diff);
             diff /= (d * d);
             separateSteering += diff;
         }
@@ -51,9 +50,9 @@ void Boid::flock(QuadTree& tree) noexcept {
     separateSteering -= velocity;
     separateSteering = limit(separateSteering, maxForce);
     }
-    acceleration += alignSteering * 1.5f;
-    acceleration += cohesionSteering * 1.2f;
-    acceleration += separateSteering * 1.4f;
+    acceleration += alignSteering * 1.0f;
+    acceleration += cohesionSteering * 1.0f;
+    acceleration += separateSteering * 1.0f;
 }
 
 void Boid::update() noexcept {

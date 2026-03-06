@@ -3,8 +3,7 @@
 #include <SFML/Graphics.hpp>
 #include "point.hpp"
 #include <vector>
-
-class QuadTree; // Forward declaration
+#include "quadtree.hpp"
 
 class Boid {
 public:
