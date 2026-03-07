@@ -1,18 +1,14 @@
 #pragma once
+#include <cstdint>
 
-class Boid;
+struct point {
+    float x, y;
+    int32_t id;
 
-class Point {
-private:
-  double xPoint;
-  double yPoint;
-  Boid* boid;
-
-
-public:
-  Point(double x, double y, Boid* b = nullptr);
-  bool equals(Point p1);
-  double getX();
-  double getY();
-  Boid* getBoid(); 
+    point(float x2, float y2, int32_t id2); 
+    point();
 };
+
+inline point middle(point const & p1, point const & p2) {
+    return {(p1.x + p2.x) * 0.5f, (p1.y + p2.y) * 0.5f, -1};
+}

@@ -1,180 +1,104 @@
-#include "Profiler.hpp" 
 #include "quadtree.hpp"
-#include "circle.hpp"
-#include "quadtreenode.hpp"
-#include <SFML/Graphics.hpp>
-#include <memory>
-#include <vector>
 
-QuadTree::QuadTree(QuadTreeNode boundary, int capacity, Arena* arena)
-    : boundary(boundary), capacity(capacity), divided(false), arena(arena) {};
-
-bool QuadTree::canContain(Point p) {
-  return boundary.canContain(p);
+quadtree quadtree::build(std::vector<point> points) {
+    quadtree result;
+    result.points = std::move(points);
+    result.boundingBox = bbox(result.points.begin(), result.points.end());
+    result.root = build_impl(result,
+        bbox(result.points.begin(), result.points.end()),
+        result.points.begin(), result.points.end(), maxDepth);
+    result.nodePointsBegin.push_back(result.points.size());
+    return result;
 }
 
-void QuadTree::insertPoint(Point p) {
-  if (!canContain(p)) {
-    return;
-  }
-  
-  if (points.size() < capacity && !divided) {
-    points.push_back(p);
-  } else {
-    if (!divided) {
-      if (boundary.getWidth() < 1.0f || boundary.getHeight() < 1.0f) {
-        points.push_back(p);
-        return;
-      }
-      this->subDivide();
-      auto oldPoints = std::move(points);
-      for (auto& p : oldPoints) {
-        if (nodes.northEast->canContain(p)) {
-          nodes.northEast->insertPoint(p);
-        } else if (nodes.northWest->canContain(p)) {
-          nodes.northWest->insertPoint(p);
-        } else if (nodes.southEast->canContain(p)) {
-          nodes.southEast->insertPoint(p);
-        } else if (nodes.southWest->canContain(p)) {
-          nodes.southWest->insertPoint(p);
+void quadtree::query(float x, float y, float perceptionRadius, int Id, std::vector<point>& result) const{
+    if (root == null) return;
+    queryStack.clear();
+    queryStack.emplace_back(root,boundingBox);
+    const float r2 = perceptionRadius * perceptionRadius;
+
+    while (!queryStack.empty()) {
+        const stackEntry entry = queryStack.back();
+        queryStack.pop_back();
+        const nodeId id = entry.id;
+        const box nodeBox = entry.bbox;
+
+        if (!intersects(nodeBox, x, y, perceptionRadius)) continue;
+
+        const std::uint32_t pBegin = nodePointsBegin[id];
+        const std::uint32_t pEnd = nodePointsBegin[id + 1];
+        for (std::uint32_t i = pBegin; i < pEnd; ++i) {
+            if (points[i].id == Id) continue;
+            const float dx = points[i].x - x;
+            const float dy = points[i].y - y;
+            if (dx * dx + dy * dy <= r2)
+                result.push_back(points[i]);
         }
-      }
+        node const& n = nodes[id];
+        const point center = middle(nodeBox.min, nodeBox.max);
+        const box childBoxes[2][2] = {
+            {{nodeBox.min,center},{{center.x,nodeBox.min.y, -1}, {nodeBox.max.x, center.y, -1}}},
+            {{{nodeBox.min.x,center.y,-1},{center.x, nodeBox.max.y,-1}},{center,nodeBox.max}}};
+
+        for (int i = 0; i < 2; ++i)
+            for (int j = 0; j < 2; ++j)
+                if (n.children[i][j] != null)
+                    queryStack.emplace_back(n.children[i][j], childBoxes[i][j]);
     }
-    
-    if (nodes.northEast->canContain(p)) {
-      nodes.northEast->insertPoint(p);
-    } else if (nodes.northWest->canContain(p)) {
-      nodes.northWest->insertPoint(p);
-    } else if (nodes.southEast->canContain(p)) {
-      nodes.southEast->insertPoint(p);
-    } else if (nodes.southWest->canContain(p)) {
-      nodes.southWest->insertPoint(p);
-    }
-  }
 }
 
-void QuadTree::subDivide() {
-  auto width = boundary.getWidth();
-  auto height = boundary.getHeight();
-
-  if (width < 1.0f || height < 1.0f) {
-    return;  
-  }
-
-  auto xCoord = boundary.getXCoord();
-  auto yCoord = boundary.getYCoord();
-
-  auto northEastBoundary = QuadTreeNode(
-      width / 2, height / 2, xCoord + width / 2, yCoord - height / 2);
-  auto northWestBoundary = QuadTreeNode(
-      width / 2, height / 2, xCoord - width / 2, yCoord - height / 2);
-  auto southEastBoundary = QuadTreeNode(
-      width / 2, height / 2, xCoord + width / 2, yCoord + height / 2);
-  auto southWestBoundary = QuadTreeNode(
-      width / 2, height / 2, xCoord - width / 2, yCoord + height / 2);
-
-  nodes.northEast = allocArenaType<QuadTree>(arena);
-  new (nodes.northEast) QuadTree(northEastBoundary, capacity, arena);
-
-  nodes.northWest = allocArenaType<QuadTree>(arena);
-  new (nodes.northWest) QuadTree(northWestBoundary, capacity, arena);
-
-  nodes.southEast = allocArenaType<QuadTree>(arena);
-  new (nodes.southEast) QuadTree(southEastBoundary, capacity, arena);
-
-  nodes.southWest = allocArenaType<QuadTree>(arena);
-  new (nodes.southWest) QuadTree(southWestBoundary, capacity, arena);
-  
-  divided = true;
+void quadtree::clear() {
+    nodes.clear();
+    points.clear();
+    nodePointsBegin.clear();
+    root = null;
+    boundingBox = {{inf,inf,-1},{-inf,-inf,-1}};
 }
 
-void QuadTree::query(QuadTree &node, std::vector<Point> &found) {
-  if (!node.boundary.intersects(boundary)) {
-    return;
-  }
+void quadtree::collectLines(sf::VertexArray& lines, box const& rootReplacement) {
+    if (root == null) return;
 
-  if (boundary.contains(node.boundary)) {
-    for (auto &p : node.points) {
-      found.push_back(p);
+    queryStack.clear();
+    queryStack.emplace_back(root, rootReplacement);
+
+    while (!queryStack.empty()) {
+        auto back = queryStack.back();
+        queryStack.pop_back();
+        const box& b = back.bbox;
+
+        sf::Vector2f topLeft(b.min.x, b.min.y);
+        sf::Vector2f topRight(b.max.x, b.min.y);
+        sf::Vector2f bottomRight(b.max.x, b.max.y);
+        sf::Vector2f bottomLeft(b.min.x, b.max.y);
+
+        lines.append(sf::Vertex{topLeft, color});
+        lines.append(sf::Vertex{topRight, color});
+
+        lines.append(sf::Vertex{topRight, color});
+        lines.append(sf::Vertex{bottomRight, color});
+
+        lines.append(sf::Vertex{bottomRight, color});
+        lines.append(sf::Vertex{bottomLeft, color});
+
+        lines.append(sf::Vertex{bottomLeft, color});
+        lines.append(sf::Vertex{topLeft, color});
+
+        node const& n = nodes[back.id];
+        const point center = middle(b.min, b.max);
+
+        const box childBoxes[2][2] = {
+            {{b.min, center}, {{center.x, b.min.y,-1}, {b.max.x, center.y, -1}}},
+            {{{b.min.x, center.y, -1}, {center.x, b.max.y, -1}}, {center, b.max}}
+        };
+
+        for (int i = 0; i < 2; i++) {
+            for (int j = 0; j < 2; ++j) {
+                if (n.children[i][j] != null) {
+                    queryStack.emplace_back(n.children[i][j], childBoxes[i][j]);
+                }
+            }
+        }
     }
-    return;
-  }
 
-  for (auto &p : node.points) {
-    if (boundary.canContain(p)) {
-      found.push_back(p);
-    }
-  }
-
-  if (node.divided) {
-    query(*node.nodes.northEast, found);
-    query(*node.nodes.northWest, found);
-    query(*node.nodes.southEast, found);
-    query(*node.nodes.southWest, found);
-  }
 }
 
-void QuadTree::queryCircle(QuadTree &node, Circle &c, std::vector<Point> &found) {
-  {
-    if (!c.intersects(node.boundary)) {
-      return;
-    }
-  }
-
-  {
-    if (c.completeContains(node.boundary)) {
-      for (auto &p : node.points) {
-        found.push_back(p);
-      }
-      if (node.divided) {
-        queryCircle(*node.nodes.northEast, c, found);
-        queryCircle(*node.nodes.northWest, c, found);
-        queryCircle(*node.nodes.southEast, c, found);
-        queryCircle(*node.nodes.southWest, c, found);
-      }
-      return;
-    }
-  }
-  
-  {
-    for (auto &p : node.points) {
-      if (c.canContain(p)) {
-        found.push_back(p);
-      }
-    }
-  }
-
-  if (node.divided) {
-    queryCircle(*node.nodes.northEast, c, found);
-    queryCircle(*node.nodes.northWest, c, found);
-    queryCircle(*node.nodes.southEast, c, found);
-    queryCircle(*node.nodes.southWest, c, found);
-  }
-}
-
-void QuadTree::draw(sf::RenderWindow &window, sf::Color color) {
-  sf::RectangleShape rect;
-  rect.setSize(sf::Vector2f(boundary.getWidth() * 2, boundary.getHeight() * 2));
-  rect.setPosition(sf::Vector2f(
-      boundary.getXCoord() - boundary.getWidth(), 
-      boundary.getYCoord() - boundary.getHeight()
-  ));
-  rect.setFillColor(sf::Color::Transparent);
-  rect.setOutlineColor(color);
-  rect.setOutlineThickness(1.0f);
-  window.draw(rect);
-
-  for (auto &p : points) {
-    sf::CircleShape point(2.0f);
-    point.setPosition(sf::Vector2f(p.getX() - 2.0f, p.getY() - 2.0f));
-    point.setFillColor(sf::Color::Green);
-    window.draw(point);
-  }
-
-  if (divided) {
-    nodes.northEast->draw(window, color);
-    nodes.northWest->draw(window, color);
-    nodes.southEast->draw(window, color);
-    nodes.southWest->draw(window, color);
-  }
-}

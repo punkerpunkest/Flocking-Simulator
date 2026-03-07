@@ -1,42 +1,44 @@
-#ifndef BOID_HPP
-#define BOID_HPP
-#include <SFML/Graphics.hpp>
+#pragma once
 #include "point.hpp"
-#include <vector>
 #include "quadtree.hpp"
+#include <SFML/Graphics.hpp>
+#include <vector>
+#include <cmath>
 
 class Boid {
-public:
-  sf::Vector2f position;
-  sf::Vector2f velocity;
-  sf::Vector2f acceleration;
-  float maxSpeed = 4.0f;
-  float maxForce = 0.1f;
-  float perceptionRadius = 50.0f;
+    public:
+        sf::Vector2f position;
+        int32_t universalIndex;
 
-  Boid(float x, float y) noexcept;
+        float maxSpeed = 4.0f;
+        float maxForce = 0.1f;
+        float perceptionRadius = 50.0f;
+        Boid(float x, float y, int32_t index);
+        Boid();
+        void flock(quadtree& tree, std::vector<sf::Vector2f>& velocities, std::vector<sf::Vector2f>& acclerations, std::vector<point>& cache, sf::Vector2f& alignSteering, sf::Vector2f& separateSteering, sf::Vector2f& cohesionSteering) noexcept;
+        void update(sf::Vector2f& velocity, sf::Vector2f& acceleration) noexcept;
+        void edges(float width, float height) noexcept;
 
-  sf::Vector2f align(QuadTree &tree) const noexcept;
-  sf::Vector2f cohesion(QuadTree &tree) const noexcept;
-  sf::Vector2f separation(QuadTree &tree) const noexcept;
-  void flock(QuadTree &tree) noexcept;
+        constexpr float magnitude(const sf::Vector2f &v) const noexcept {
+            return std::sqrt(v.x * v.x + v.y * v.y);
+        }
 
-  void update() noexcept;
-  void edges(const float width, const float height) noexcept;
-  void draw(sf::RenderWindow &window) const;
+        constexpr sf::Vector2f normalize(const sf::Vector2f &v) const noexcept {
+            const float mag = magnitude(v);
+            if (mag > 0.0f)
+                return v / mag;
+            return v;
+        }
 
-  float getX() const noexcept { return position.x; }
-  float getY() const noexcept { return position.y; }
-  sf::Vector2f getPosition() const noexcept { return position; }
+        constexpr sf::Vector2f setMag(const sf::Vector2f &v,const float newMag) const noexcept {
+            return normalize(v) * newMag;
+        }
 
-private:
-  constexpr float magnitude(const sf::Vector2f &v) const noexcept;
-  constexpr sf::Vector2f normalize(const sf::Vector2f &v) const noexcept;
-  constexpr sf::Vector2f setMag(const sf::Vector2f &v,
-                                const float newMag) const noexcept;
-  constexpr sf::Vector2f limit(const sf::Vector2f &v,
-                               const float max) const noexcept;
-  std::vector<Point> neighbourCache;
+        constexpr sf::Vector2f limit(const sf::Vector2f &v,const float max) const noexcept {
+            const float mag = magnitude(v);
+            if (mag > max) {
+                return (v / mag) * max;
+            }
+            return v;
+        }
 };
-
-#endif

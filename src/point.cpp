@@ -1,23 +1,14 @@
 #include "point.hpp"
 
-Point::Point(double x, double y, Boid* b) {
-  xPoint = x;
-  yPoint = y;
-  boid = b;
+
+point::point(float x2, float y2, int32_t id2) {
+    x = x2;
+    y = y2;
+    id = id2;
 }
 
-bool Point::equals(Point p1) {
-  if (xPoint == p1.xPoint && yPoint == p1.yPoint) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-double Point::getX() { return xPoint; }
-
-double Point::getY() { return yPoint; }
-
-Boid* Point::getBoid() {
-  return boid;
+point::point() {
+    x = 0.0f;
+    y = 0.0f;
+    id = -1;
 }
