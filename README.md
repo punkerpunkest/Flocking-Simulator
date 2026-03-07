@@ -12,6 +12,16 @@ From the land to the sea to the air, flocking behavior can be seen in many anima
 - **Arena Allocator**: Reduced allocation overhead and improved cache locality
 - **Custom Profile**: Benchmarking tool validates 4x speedup
 
+### Profiling 
+**Flame Graphs** : Alongside our custom profiler, we enlist the use of Brendan Gregg's Flame graph to visually depict the effect of our changed architecture. The first picture shows the first iteration, and the second our final version.
+<img width="1196" height="459" alt="firstVersionFlame" src="https://github.com/user-attachments/assets/08017cb0-0398-496f-a814-91335df973a1" />
+
+We see extensive time taken for drawing all the boids, and the queryNode function for finding Boid neighbours. 
+
+<img width="2394" height="1322" alt="newVersionFlame" src="https://github.com/user-attachments/assets/75aab8a1-0dd9-4967-b6d2-18018fd9c87c" />
+
+
+
 ### Boid behaviors
 - **Alignment**: Boids steer toward the average velocity of their neighbors
 - **Cohesion**: Boids move towards the center of local flocks
